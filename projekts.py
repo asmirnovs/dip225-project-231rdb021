@@ -2,8 +2,6 @@ import imaplib
 import email
 import re, time
 from datetime import datetime
-import tabulate
-
 
 gmail = imaplib.IMAP4_SSL("imap.gmail.com")
 gmail.login(login, password)
@@ -38,9 +36,12 @@ for mail in data:
 print('Fetching done')
 gmail.close()
 
+
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
 
 driver = webdriver.Chrome(service=Service(), options=webdriver.ChromeOptions())
 
@@ -49,23 +50,36 @@ total = 0.00
 
 for doc in res:
     driver.get(str(doc[0]))
-    time.sleep(2)
-    driver.find_element(By.NAME, "invoicePassword").send_keys(doc[1].strip())
-    driver.find_element(By.CLASS_NAME, "mdc-button__label").click()
-    time.sleep(2)
+    for _ in range(3): # try to get info 3 times before giving up
+        try:
+            driver.refresh()
+            time.sleep(2)
 
-    subtotal = driver.find_elements(By.CSS_SELECTOR, '.text-right.emphasis.bolder')
-    for i in subtotal:
-        if i.get_attribute("innerHTML") == "Kopā / Total incl. VAT, EUR":
+            # enter password and open doc
+            driver.find_element(By.NAME, "invoicePassword").send_keys(doc[1].strip())
+            driver.find_element(By.CLASS_NAME, "mdc-button__label").click()
+            time.sleep(2)
+
+            # get total cost
+            subtotal = driver.find_elements(By.CSS_SELECTOR, '.text-right.emphasis.bolder')
+            i = None
+            for i in subtotal:
+                if i.get_attribute("innerHTML") == "Kopā / Total incl. VAT, EUR":
+                    break
+            subtotal = subtotal[subtotal.index(i)+1].get_attribute("innerHTML") # TOTAL COST
+            subtotal = float(subtotal)
+
+            for i in driver.find_elements(By.CSS_SELECTOR, '.invoice-line.ng-star-inserted'):
+                row = i.find_elements(By.TAG_NAME, "td")
+                cars.append(f'{row[2].get_attribute("innerHTML")[:11].strip()}: {row[1].get_attribute("innerHTML")} -> {row[3].get_attribute("innerHTML")}€')
+            cars.append(f"---- INVOICE SUBTOTAL: {round(subtotal, 2)}€ ----")
+            total += round(subtotal, 2)
             break
-    subtotal = subtotal[subtotal.index(i)+1].get_attribute("innerHTML") # TOTAL COST
-    subtotal = float(subtotal)
-
-    for i in driver.find_elements(By.CSS_SELECTOR, '.invoice-line.ng-star-inserted'):
-        row = i.find_elements(By.TAG_NAME, "td")
-        cars.append(f'{row[2].get_attribute("innerHTML")[:11].strip()}: {row[1].get_attribute("innerHTML")} -> {row[3].get_attribute("innerHTML")}€')
-    cars.append(f"---- INVOICE SUBTOTAL: {round(subtotal, 2)}€ ----")
-    total += round(subtotal, 2)
+        except TimeoutException or NoSuchElementException:
+            continue
+        except KeyboardInterrupt or NoSuchWindowException:
+            print('Process stopped')
+            quit()
 
 driver.close()
 
