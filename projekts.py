@@ -19,7 +19,7 @@ print('Search done')
 
 res = []
 
-print('Fetching email...')
+print('Fetching email...', end="")
 for mail in data:
     _, msg = gmail.fetch(mail, '(RFC822)')
     msg = email.message_from_bytes(msg[0][1])
@@ -33,7 +33,8 @@ for mail in data:
                 date = msg['date'][:-12] # get mail date
                 date = datetime.strftime(datetime.strptime(date, "%a, %d %b %Y %H:%M:%S"), "%d.%m.%Y") # Mon, 21 Aug 2023 04:16:20 +0000 (UTC) -> 21.08.2023
                 res.append([url, parole, date]) # add info to list
-print('Fetching done')
+    print(".", end="", flush=True)
+print('\nFetch done')
 gmail.close()
 
 
@@ -42,6 +43,8 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 driver = webdriver.Chrome(service=Service(), options=webdriver.ChromeOptions())
 
@@ -53,12 +56,12 @@ for doc in res:
     for _ in range(3): # try to get info 3 times before giving up
         try:
             driver.refresh()
-            time.sleep(2)
+            WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.NAME, "invoicePassword")))
 
             # enter password and open doc
             driver.find_element(By.NAME, "invoicePassword").send_keys(doc[1].strip())
             driver.find_element(By.CLASS_NAME, "mdc-button__label").click()
-            time.sleep(2)
+            WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".report-box.version2.mt-32.ng-star-inserted")))
 
             # get total cost
             subtotal = driver.find_elements(By.CSS_SELECTOR, '.text-right.emphasis.bolder')
@@ -75,9 +78,10 @@ for doc in res:
             cars.append(f"---- INVOICE SUBTOTAL: {round(subtotal, 2)}€ ----")
             total += round(subtotal, 2)
             break
-        except TimeoutException or NoSuchElementException:
+        except (TimeoutException, NoSuchElementException):
             continue
-        except KeyboardInterrupt or NoSuchWindowException:
+        except (KeyboardInterrupt, NoSuchWindowException):
+            print(*cars, sep="\n")
             print('Process stopped')
             quit()
 
