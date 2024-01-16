@@ -45,47 +45,66 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, NoSuchWindowException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from openpyxl import load_workbook, Workbook
+from openpyxl.styles import Font
 
 driver = webdriver.Chrome(service=Service(), options=webdriver.ChromeOptions())
 
 cars = []
 total = 0.00
 
+wb = Workbook()
+ws=wb.active
+xl=2
 for doc in res:
+    # --- open url ---
     driver.get(str(doc[0]))
-    for _ in range(3): # try to get info 3 times before giving up
+    for lalala in range(3): # try to get info 3 times before giving up (in case the website throws an error)
         try:
-            driver.refresh()
+            driver.refresh() # required for the website to work
             WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.NAME, "invoicePassword")))
 
-            # enter password and open doc
+            # --- enter password and open doc ---
             driver.find_element(By.NAME, "invoicePassword").send_keys(doc[1].strip())
             driver.find_element(By.CLASS_NAME, "mdc-button__label").click()
             WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".report-box.version2.mt-32.ng-star-inserted")))
 
-            # get total cost
+            # --- get total cost ---
             subtotal = driver.find_elements(By.CSS_SELECTOR, '.text-right.emphasis.bolder')
-            i = None
             for i in subtotal:
                 if i.get_attribute("innerHTML") == "Kopā / Total incl. VAT, EUR":
                     break
             subtotal = subtotal[subtotal.index(i)+1].get_attribute("innerHTML") # TOTAL COST
             subtotal = float(subtotal)
 
+            # --- get list with all the cars ---
             for i in driver.find_elements(By.CSS_SELECTOR, '.invoice-line.ng-star-inserted'):
                 row = i.find_elements(By.TAG_NAME, "td")
-                cars.append(f'{row[2].get_attribute("innerHTML")[:11].strip()}: {row[1].get_attribute("innerHTML")} -> {row[3].get_attribute("innerHTML")}€')
-            cars.append(f"---- INVOICE SUBTOTAL: {round(subtotal, 2)}€ ----")
+                ws['A'+str(xl)] = row[2].get_attribute("innerHTML")[:11].strip()
+                ws['B'+str(xl)] = row[1].get_attribute("innerHTML")
+                ws['C'+str(xl)] = str(row[3].get_attribute("innerHTML")) + '€'
+                xl += 1
+                # cars.append(f'{row[2].get_attribute("innerHTML")[:11].strip()}: {row[1].get_attribute("innerHTML")} -> {row[3].get_attribute("innerHTML")}€')
+            # --- add info to the spreadsheet ---
+            ws.merge_cells(start_row=xl, start_column=2, end_row=xl, end_column=3)
+            ws['A'+str(xl)] = doc[2]
+            ws['A'+str(xl)].font = Font(bold=True)
+            ws['B'+str(xl)] = f"---- INVOICE SUBTOTAL: {round(subtotal, 2)}€ ----"
+            ws['B'+str(xl)].font = Font(bold=True)
+            xl += 1
+            # cars.append(f"---- INVOICE SUBTOTAL: {round(subtotal, 2)}€ ----")
             total += round(subtotal, 2)
+            wb.save('cars.xlsx')
             break
-        except (TimeoutException, NoSuchElementException):
-            continue
-        except (KeyboardInterrupt, NoSuchWindowException):
-            print(*cars, sep="\n")
+        except TimeoutException or NoSuchElementException:
+            continue # in case the webpage doesn't have the element, try again 
+        except KeyboardInterrupt or NoSuchWindowException:
             print('Process stopped')
             quit()
+# --- add total cost to the spreadsheet ---
+ws.merge_cells(start_row=xl, start_column=1, end_row=xl, end_column=3)
+ws['A'+str(xl)] = f"\n TOTAL COST: {round(total, 2)}€"
+wb.save('cars.xlsx')
 
+wb.close()
 driver.close()
-
-print(*cars, sep="\n")
-print(f"\n TOTAL COST: {round(total, 2)}€")
