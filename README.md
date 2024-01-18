@@ -34,3 +34,4 @@ Sākumā, izmantojot lietotāja ievadīto datumu (ko programma pārbauda, izmant
 
 - [Links](https://drive.google.com/file/d/1z5zhgP6DY23nWsITECMcE7M0U6SbpBOA/view?usp=sharing) uz video ar programmas darbības paraugu
 - [Google Sheet](https://docs.google.com/spreadsheets/d/1taRcFp6s7BUwJKRaFS4WjLX7NXKLE2rRN8C54KcANOM/edit?usp=sharing) ar izveidotas tabulas piemēru
+- Citybee [rēķina piemērs](https://drive.google.com/file/d/1XGHvO_xfKC-_SeVHxa4iy28RVjKLPuR4/view?usp=sharing) (bez personāliem datiem)
