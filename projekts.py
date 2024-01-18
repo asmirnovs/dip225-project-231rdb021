@@ -10,11 +10,11 @@ gmail.login(login, password)
 gmail.select('INBOX')
 
 # --- fetch mail ---
-for i in range(3): # ask user for date and check if the format is correct
+for i in range(3): # ask user for date
     since = input("Enter date (dd-Mon-YYYY): ")
-    try: datetime.strptime(since, "%d-%b-%Y"); break
+    try: datetime.strptime(since, "%d-%b-%Y"); break # check if the format is correct
     except ValueError: print('Error, wrong date format')
-    if i==2: quit()
+    if i==2: quit() # quit if failed to provide date
 
 value = 'info@citybee.lv'
 print('Searching mail...')
@@ -35,7 +35,7 @@ for mail in data:
             url = re.search("Pārskatīt rēķinu (.+)", body).group().lstrip("Pārskatīt rēķinu (").replace(" )", "").strip().strip(" ")
             parole = re.search("Rēķinu var apskatīt tikai pēc paroles ievadīšanas.+\n", body).group().lstrip("Rēķinu var apskatīt tikai pēc paroles ievadīšanas")[2:].strip()
             date = msg['date'][:-12] # get mail date
-            date = datetime.strftime(datetime.strptime(date, "%a, %d %b %Y %H:%M:%S"), "%d.%m.%Y") # Mon, 21 Aug 2023 04:16:20 +0000 (UTC) -> 21.08.2023
+            date = datetime.strftime(datetime.strptime(date, "%a, %d %b %Y %H:%M:%S"), "%d.%m.%Y") # dd.mm.YYYY
             res.append([url, parole, date]) # add info to list
     print(".", end="", flush=True)
 print('\nFetch done')
@@ -60,10 +60,16 @@ driver = webdriver.Chrome(service=Service(), options=webdriver.ChromeOptions())
 wb = Workbook()
 ws=wb.active
 
+# --- headers ---
+ws['A1'] = 'Date'
+ws['B1'] = 'Car info'
+ws['C1'] = 'Cost'
+for i in ['A', 'B', 'C']: ws[f'{i}1'].font = Font(bold=True)
+
 for doc in res:
     # --- open url ---
     driver.get(str(doc[0]))
-    for _ in range(3): # try to get info 3 times before giving up (in case the website throws an error)
+    for _ in range(3): # 3 attempts to get info
         try:
             driver.refresh()
             WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.NAME, "invoicePassword")))
